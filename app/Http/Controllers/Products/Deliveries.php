@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Copy;
 use App\Models\Cart;
 use App\Models\Buyer;
+use App\Models\Seller;
 use App\Mail\SendReferenceNumber;
 use DB;
 
@@ -27,6 +28,8 @@ class Deliveries extends Controller
         $payment_type = $request->payment_type;
         $details = $request->details;
 
+        $referenceNumber = str_random(20);
+        
         $deliver = new Delivery;
         $deliver->buyer_id = $buyer_id;
         $deliver->total_payment = $totalPayment;
@@ -35,6 +38,7 @@ class Deliveries extends Controller
         $deliver->address = $address;
         $deliver->date = $date;
         $deliver->zip_code = $zip_code;
+        $deliver->reference_number = $referenceNumber;
         $deliver->payment_type = $payment_type;
 
         if ($deliver->save()) {
@@ -59,7 +63,6 @@ class Deliveries extends Controller
                 }
             }
 
-            $referenceNumber = str_random(20);
             foreach ($details as $key => $value) {
                 $clone = new Copy;
                 $clone->seller_id = $value['seller_id'];
@@ -70,10 +73,25 @@ class Deliveries extends Controller
             }
 
             $email = Buyer::where('buyer_id', $buyer_id)->get(); 
-
-            \Mail::to($email[0]->email)->send(new SendReferenceNumber($email[0]->email,$referenceNumber, $totalPayment));
+            
+            if ($payment_type === 'coins') {
+                \Mail::to($email[0]->email)->send(new SendReferenceNumber($email[0]->email,$referenceNumber, $totalPayment));
+            }
 
             return response()->json(array("deliver" => $deliver, "message" => "Created succesfully"));
         }
+    }
+
+    public function getAllDeliveries(Request $request, $seller_id) {
+        $details = Seller::select('*')
+                ->join('products', 'products.seller_id', 'sellers.seller_id')
+                ->join('carts', 'carts.product_id', 'products.product_id')
+                ->join('buyers', 'buyers.buyer_id', 'carts.cart_id')
+                ->join('delivery', 'delivery.buyer_id', 'carts.buyer_id')
+                ->where('carts.status', 3)
+                ->where('sellers.seller_id', $seller_id)
+                ->get();
+
+        return response()->json($details);
     }
 }

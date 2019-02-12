@@ -61,13 +61,14 @@ class Products extends Controller
     public function getProductDetails(Request $request, $id) {
         $product = Seller::select('*')
                 ->join('products', 'products.seller_id', 'sellers.seller_id')
+                // ->where('quantity', '>', 0)
                 ->where('product_id', $id)
                 ->get();
         return response()->json($product);
     }
 
     public function getProductsOfAllSellers(Request $request) {
-        $products = Product::select('*')->get();
+        $products = Product::select('*')->where('quantity', '>', 0)->where('status', 0)->get();
         return response()->json(array(["products" => $products]), 200);
     }
 
@@ -142,9 +143,10 @@ class Products extends Controller
 
     public function searchByProductName(Request $request) {
         $advance_search = $request->advance_search;
-        $dataSearch = Product::where('seller_id', $request->seller_id)
+        $dataSearch = Product::select('*')
                     ->where('name', 'LIKE', '%' . $advance_search . '%')
                     ->where('status', 0)
+                    ->where('seller_id', $request->seller_id)
                     ->get();
         return response()->json($dataSearch);
     }
@@ -261,7 +263,7 @@ class Products extends Controller
 
         if ($searchType === 'shop') {
             $searchShops = Seller::select('*')
-                    ->join('products', 'sellers.seller_id', 'products.seller_id')
+                    // ->join('products', 'sellers.seller_id', 'products.seller_id')
                     ->where('shopName', 'LIKE', '%' . $advance_search . '%')
                     ->get();
 
@@ -271,6 +273,7 @@ class Products extends Controller
         if ($searchType === 'category') {
             $searchCategory = Seller::select('*')
                     ->join('products', 'sellers.seller_id', 'products.seller_id')
+                    ->where('products.status', 0)
                     ->where('category', 'LIKE', '%' . $advance_search . '%')
                     ->get();
 

@@ -12,6 +12,7 @@ use App\Models\Copy;
 use App\Mail\Verification;
 use App\Mail\Activation;
 use App\Mail\SellerSignUp;
+use App\Mail\PaidSeller;
 use DB;
 use Hash;
 
@@ -23,11 +24,11 @@ class Sellers extends Controller
         try{
             $email = $request->email;
             $code = str_random(32);
-            // $mail = \Mail::to($email)->send(new Verification($email,$code));
+            $mail = \Mail::to($email)->send(new Verification($email,$code));
 
-            // if (is_object($mail)) {
-            //     return response()->json('Email failed to send!');
-            // }
+            if (is_object($mail)) {
+                return response()->json('Email failed to send!');
+            }
 
             $emailExists = SellerToken::where("email", $email)->get();
             if (count($emailExists) === 0) {
@@ -97,7 +98,7 @@ class Sellers extends Controller
             $buyer->token = str_random(32);
             
             if ($buyer->save()) {
-                // \Mail::to($request->email)->send(new SellerSignUp($request->email));
+                \Mail::to($request->email)->send(new SellerSignUp($request->email));
                 \Image::make($imageRequest)->save(public_path('storage/sellerDTIImages/') . $image);
                 return response()->json("Save successfully", 200);
             }
@@ -130,30 +131,29 @@ class Sellers extends Controller
     }
 
     public function getDeliveryOrders(Request $request, $seller_id) {
-        $details = Copy::select('*')
-                ->join('delivery', 'delivery.delivery_id', 'copy_delivery.delivery_id')
-                ->join('buyers', 'buyers.buyer_id', 'delivery.buyer_id')
-                ->where('seller_id', $seller_id)
-                ->where('reference_number', '!=', '')
-                ->get();
-
         $orders = Delivery::select('*')
                 ->join('carts', 'carts.buyer_id', 'delivery.buyer_id')
                 ->join('products', 'products.product_id', 'carts.product_id')
-                ->join('copy_delivery', 'copy_delivery.seller_id', 'products.seller_id')
-                ->where('copy_delivery.seller_id', $seller_id)
-                ->where('carts.status', 2)
+                ->join('buyers', 'buyers.buyer_id', 'delivery.buyer_id')
+                ->where('products.seller_id', $seller_id)
+                // ->where('carts.status', 2)
                 ->get();
 
-        // $copy = array();
-        // foreach ($orders as $key => $value) {
-        //     $details = array(
-        //             'firstname' => $value->firstname, 'lastname' => $value->lastname,
-        //             'total_payment' => $value->total_payment, 'payment_type' => $value->payment_type
-        //         );
-        //     array_push($copy, $details);
-        // }
-            
+        $details = Delivery::select('*')
+                ->join('buyers', 'buyers.buyer_id', 'delivery.delivery_id')
+                // ->where('seller_id', $seller_id)
+                // ->join('carts', 'carts.buyer_id', 'buyers.buyer_id')
+                // ->join('copy_delivery', 'copy_delivery.seller_id', 'carts.product_id')   
+                ->get();
+        // $details = Copy::select('*')
+        //         ->join('delivery', 'delivery.delivery_id', 'copy_delivery.delivery_id')
+        //         // ->join('buyers', 'buyers.buyer_id', 'delivery.buyer_id')
+        //         // ->where('copy_delivery.reference_number', '!=', '')
+        //         ->where('delivery.paymentStatus', null)
+        //         // ->where('seller_id', $seller_id)
+        //         ->get();
+
+
         return response()->json(array('orders' => $orders, 'details' => $details));
     }
 
@@ -171,9 +171,8 @@ class Sellers extends Controller
                     ]);
 
         $details = Seller::where('seller_id', $request->seller_id)->get();
-        // \Mail::to($details[0]['email'])->send(new Activation($details[0]['email'], 'ac'));
+        \Mail::to($details[0]['email'])->send(new Activation($details[0]['email'], 'ac'));
 
-        // $sellers = Seller::where('status', 1)->get();
         $sellers = Seller::where('token', '')->get();
         return response()->json($sellers);
     }
@@ -186,20 +185,22 @@ class Sellers extends Controller
                     ]);
 
         $details = Seller::where('seller_id', $request->seller_id)->get();
-        // \Mail::to($details[0]['email'])->send(new Activation($details[0]['email'], 'de-ac'));
+        \Mail::to($details[0]['email'])->send(new Activation($details[0]['email'], 'de-ac'));
             
-        // $sellers = Seller::where('status', 0)->get();
         $sellers = Seller::where('token', '')->get();
         return response()->json($sellers);
     }
 
     public function updateSellerIfPaid(Request $request) {
-        $details = DB::table('sellers')
+        $data = DB::table('sellers')
                 ->where('shopName', $request->shopName)
                 ->update([
                     'token' => ''
                 ]);
 
+        $details = Seller::where('shopName', $request->shopName)->get();
+
+        \Mail::to($details[0]['email'])->send(new PaidSeller($details[0]['email']));
         $sellers = Seller::where('token', '!=', '')->get();
         return response()->json($sellers);
     }

@@ -20,6 +20,7 @@ Route::group(['prefix' => 'api', 'middleware' => 'cors'], function(){
   Route::post('/signUpBuyer',  'Users\Buyers@signUpBuyer');
   Route::post('/checkIfBuyerOrderedAProduct',  'Users\Buyers@checkIfBuyerOrderedAProduct');
   Route::post('/updateBuyerStatusWhenPaid',  'Users\Buyers@updateBuyerStatusWhenPaid');
+  Route::post('/updateCheckoutDetails',  'Users\Buyers@updateCheckoutDetails');
   
   Route::get('/buyerCheckoutDetails/{buyer_id}',  'Users\Buyers@buyerCheckoutDetails');
   Route::get('/getBuyerOrders/{buyer_id}',  'Users\Buyers@getBuyerOrders');
@@ -69,6 +70,8 @@ Route::group(['prefix' => 'api', 'middleware' => 'cors'], function(){
 
   //DELIVERY
   Route::post('/createDeliveryCheckout',  'Products\Deliveries@createDeliveryCheckout');
+
+  Route::get('/getAllDeliveries/{seller_id}',  'Products\Deliveries@getAllDeliveries');
   
   // FEEDBACKS
   Route::post('/giveFeedbacks',  'Products\Feedbacks@giveFeedbacks');

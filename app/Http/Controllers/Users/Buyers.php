@@ -10,7 +10,9 @@ use App\Models\Cart;
 use App\Models\Feedback;
 use App\Models\Products;
 use App\Models\Copy;
+use App\Models\Delivery;
 use DB;
+
 
 class Buyers extends Controller
 {
@@ -59,13 +61,23 @@ class Buyers extends Controller
         return response()->json(array("details" => $details, "buyer" => $buyerDetails, "total" => $total));
     }
 
-    public function getBuyerOrders(Request $request, $buyer_id) {
-        // $orders = Cart::select('products.image', 'products.name', 'products.price', 'carts.orderQuantity')
-        //         ->join('products', 'carts.product_id', 'products.product_id')
-        //         ->join('sellers', 'products.seller_id', 'sellers.seller_id')
-        //         ->where('carts.buyer_id', $buyer_id)
-        //         ->get();
+    public function updateCheckoutDetails(Request $request) {
+        $buyer_id = $request->buyer_id;
+        $data = $request->data;
 
+        foreach ($data as $key => $value) {
+            $details = DB::table('carts')
+                ->where('product_id', $value['product_id'])
+                ->where('buyer_id', $buyer_id)
+                ->where('status', 0)
+                ->update([
+                    'orderQuantity' => $value['orderQuantity']
+                ]);
+        } 
+        return response()->json(array('updated' => true));
+    }
+
+    public function getBuyerOrders(Request $request, $buyer_id) {
         $orders = Cart::select('products.image', 'products.name', 'products.price', 'carts.orderQuantity',
                 'sellers.shopName', 'carts.status', 'products.product_id')
                 ->join('products', 'carts.product_id', 'products.product_id')
@@ -97,21 +109,14 @@ class Buyers extends Controller
         $reference_number = $request->reference_number;
         $seller_id = $request->seller_id;
 
-        $data = Copy::select('*')
-                ->join('products', 'products.seller_id', 'copy_delivery.seller_id')
-                // ->join('carts', 'carts.product_id', 'products.product_id')      
-                ->join('delivery', 'delivery.delivery_id', 'copy_delivery.copy_delivery_id')
-                ->where('reference_number', $reference_number)
+        $data = Delivery::select('*')
+                // ->join('delivery', 'copy_delivery.delivery_id', 'delivery.delivery_id')
+                // ->join('products', 'products.seller_id', 'copy_delivery.seller_id')
+                ->join('carts', 'carts.buyer_id', 'delivery.buyer_id')
+                ->where('delivery.reference_number', $reference_number)
                 ->get();
-
-        // $details = DB::table('copy_delivery')
-        //     ->where('reference_number', $reference_number)
-        //     ->update([
-        //         'reference_number' => ''
-        //     ]);
-
+                
         $products = Cart::select('*')->get();
-
         foreach ($products as $key => $product) {
             foreach ($data as $key => $value) {
                 if ($value->product_id == $product->product_id) {
@@ -127,12 +132,24 @@ class Buyers extends Controller
             }
         }
 
+        DB::table('delivery')
+            ->where('delivery.reference_number', $reference_number)
+            ->update([
+                'paymentStatus' => 1
+            ]);
+
         $copy = Copy::select('*')
-                    ->join('delivery', 'delivery.delivery_id', 'copy_delivery.delivery_id')
-                    ->join('buyers', 'buyers.buyer_id', 'delivery.buyer_id')
-                    ->where('seller_id', $seller_id)
-                    ->where('reference_number', '!=', '')
-                    ->get();
+            ->join('delivery', 'delivery.delivery_id', 'copy_delivery.delivery_id')
+            ->join('buyers', 'buyers.buyer_id', 'delivery.buyer_id')
+            ->where('seller_id', $seller_id)
+            ->where('delivery.paymentStatus', 0)
+            ->get();
+        // $copy = Copy::select('*')
+        //             ->join('delivery', 'delivery.delivery_id', 'copy_delivery.delivery_id')
+        //             ->join('buyers', 'buyers.buyer_id', 'delivery.buyer_id')
+        //             ->where('seller_id', $seller_id)
+        //             ->where('delivery.reference_number', '!=', '')
+        //             ->get();
 
         return response()->json($copy);
     }
